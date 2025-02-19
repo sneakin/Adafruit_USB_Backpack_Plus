@@ -285,7 +285,8 @@ void setup()
         lcd.spf(F("USB/Ser RGB Bkpk"));
         lcd.setCursor(0,1);
         lcd.spf(F("%4i00/8N1 %s"),(int)(getBaud()/100),VERSION);
-        delayMS(500);
+        for (uint8_t d=0; d<EEPROM.read(SPLASH_DELAY_ADDR); d++)
+            delayMS(100);
     }
 
     // now setup as defined in EEPROM
@@ -589,8 +590,12 @@ void parseCommand()
         switch(a)
         {
             case 0:
+            case '0':
+                eeSave(BAUD_SPLASH_DISABLE, 0);
+                break;
             case 1:
-                eeSave(BAUD_SPLASH_DISABLE, a);
+            case '1':
+                eeSave(BAUD_SPLASH_DISABLE, 1);
                 break;
             default:
                 break;  // anything else will have no effect
