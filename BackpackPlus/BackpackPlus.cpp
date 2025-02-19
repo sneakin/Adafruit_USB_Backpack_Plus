@@ -123,6 +123,7 @@ All text above must be included in any redistribution
 #define EXTENDED_DUMP_EEPROM        0xDD            // 2 args: start_page, end_page;
 #define EXTENDED_EDIT_EEPROM        0xDE            // 5 args: page#, byte1, byte2, byte3, byte4
 #define EXTENDED_CODE_TEST          0xDF            // reserved for code testing
+#define EXTENDED_FREE_MEM           0xFD
 #define MATRIX_COMMAND_PREFIX       0xFE            // prefix for all commands
 
 // EEPROM storage of the current state - unset EEPROM cells reads as 255
@@ -227,6 +228,20 @@ elapsedMillis audio_meter_timer = 0;
 
 void audioLevelMeter(uint8_t ch);
 void audioLevelMeterInitCustomChars();
+
+extern unsigned int __bss_end;
+extern unsigned int __heap_start;
+extern void *__brkval;
+int freeMemory() {
+  int free_memory;
+
+  if ((int)__brkval == 0)
+     free_memory = ((int)&free_memory) - ((int)&__bss_end);
+  else
+    free_memory = ((int)&free_memory) - ((int)__brkval);
+
+  return free_memory;
+}
 
 // follow Arduino style setup and loop functions
 void setup()
@@ -410,6 +425,7 @@ void parseCommand()
 {
     uint8_t a, b;
     uint8_t cmd = serialBlockingRead(); // read the command byte
+    int n;
     switch (cmd)   // get the command byte and process
     {
     case MATRIX_DISPLAY_ON_TIMED:
@@ -637,6 +653,12 @@ void parseCommand()
         dumpEEPROM(a,a);
         break;
     case EXTENDED_CODE_TEST:
+        break;
+    case EXTENDED_FREE_MEM:
+        n = freeMemory();
+        DEBUGTERM.spf(F("Free Mem %i"), n);
+        lcd.clear();
+        lcd.spf(F("Free Mem %i"), n);
         break;
     };
 }
