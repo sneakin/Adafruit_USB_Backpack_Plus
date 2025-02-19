@@ -124,6 +124,7 @@ All text above must be included in any redistribution
 #define EXTENDED_EDIT_EEPROM        0xDE            // 5 args: page#, byte1, byte2, byte3, byte4
 #define EXTENDED_CODE_TEST          0xDF            // reserved for code testing
 #define EXTENDED_FREE_MEM           0xFD
+#define EXTENDED_SERIAL_PASSTHROUGH 0xFC            // 1 arg: on?
 #define MATRIX_COMMAND_PREFIX       0xFE            // prefix for all commands
 
 // EEPROM storage of the current state - unset EEPROM cells reads as 255
@@ -214,6 +215,7 @@ elapsedMillis since = 0;
 elapsedMillis dbounce_timer = 0;
 uint8_t retransmit_timer = 0;
 uint8_t cmdFlags = 0x00;                          // command mode debug flags
+uint8_t passthrough_serial = 0;
 
 //
 // Audio level meter
@@ -338,7 +340,13 @@ void loop()
 {
     uint8_t tmp;
     // look for serial data input
-    if (serialAvailable())
+    if (passthrough_serial && UART.available()) {
+        while(UART.available()) {
+            tmp = UART.read();
+            USB.write(tmp);
+        }
+    }
+    else if (serialAvailable())
     {
         tmp = serialBlockingRead();
         if (tmp != MATRIX_COMMAND_PREFIX)
@@ -660,6 +668,10 @@ void parseCommand()
         lcd.clear();
         lcd.spf(F("Free Mem %i"), n);
         break;
+    case EXTENDED_SERIAL_PASSTHROUGH:
+        a = serialBlockingRead(); // on
+        passthrough_serial = (a == '0' || a == 0) ? 0 : 1;
+        break;
     };
 }
 
@@ -738,7 +750,7 @@ void setBaud(uint32_t baudrate)
 
 int serialAvailable()
 {
-    return max(USB.available(), UART.available());
+    return max(USB.available(), passthrough_serial ? 0 : UART.available());
 }
 
 uint8_t serialBlockingRead()
@@ -762,7 +774,7 @@ uint8_t serialBlockingRead()
     {
         c = USB.read();
     }
-    else if (UART.available())
+    else if (!passthrough_serial && UART.available())
     {
         c = UART.read();
         s = 1;
